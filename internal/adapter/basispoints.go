@@ -887,9 +887,67 @@ func bpReplaceNativeCall(response map[string]any, toolCall map[string]any) {
 
 func bpParseSSEFinal(raw []byte) (map[string]any, error) {
 	var completed map[string]any
+	var started map[string]any
+	finishedItems := map[int]map[string]any{}
+	finishedOrder := make([]int, 0)
+	textByIndex := map[int]string{}
+	finalTextByIndex := map[int]string{}
+	terminalFailure := ""
 	reader := bufio.NewScanner(strings.NewReader(string(raw)))
 	reader.Buffer(make([]byte, 1024), 8<<20)
 	dataLines := make([]string, 0, 2)
+	eventName := ""
+	isSuccessTerminalEvent := func(eventType string) bool {
+		switch eventType {
+		case "response.completed", "response.done", "response.finished":
+			return true
+		default:
+			return false
+		}
+	}
+	isFailureTerminalEvent := func(eventType string) bool {
+		switch eventType {
+		case "response.failed", "response.incomplete", "response.cancelled", "response.error":
+			return true
+		default:
+			return false
+		}
+	}
+	isFailureStatus := func(status string) bool {
+		switch status {
+		case "failed", "incomplete", "cancelled", "error":
+			return true
+		default:
+			return false
+		}
+	}
+	isSuccessStatus := func(status string) bool {
+		switch status {
+		case "completed", "complete", "done", "finished":
+			return true
+		default:
+			return false
+		}
+	}
+	flushItem := func(object map[string]any, eventType string) {
+		item := bpObject(object["item"])
+		if item == nil || eventType != "response.output_item.done" {
+			return
+		}
+		itemStatus := strings.ToLower(bpString(item["status"]))
+		if isFailureStatus(itemStatus) {
+			terminalFailure = itemStatus
+			return
+		}
+		index := len(finishedOrder)
+		if value, ok := object["output_index"].(float64); ok && value >= 0 {
+			index = int(value)
+		}
+		if _, exists := finishedItems[index]; !exists {
+			finishedOrder = append(finishedOrder, index)
+		}
+		finishedItems[index] = bpCloneObject(item)
+	}
 	flush := func() {
 		if len(dataLines) == 0 {
 			return
@@ -903,9 +961,63 @@ func bpParseSSEFinal(raw []byte) (map[string]any, error) {
 		if json.Unmarshal([]byte(data), &object) != nil || object == nil {
 			return
 		}
-		if response := bpObject(object["response"]); response != nil {
-			if bpString(object["type"]) == "response.completed" || bpString(response["status"]) == "completed" {
-				completed = response
+		typeName := strings.ToLower(strings.TrimSpace(eventName))
+		if typeName == "" {
+			typeName = strings.ToLower(bpString(object["type"]))
+		}
+		flushItem(object, typeName)
+		if typeName == "response.output_text.delta" {
+			if delta := bpString(object["delta"]); delta != "" {
+				index := 0
+				if value, ok := object["output_index"].(float64); ok && value >= 0 {
+					index = int(value)
+				}
+				textByIndex[index] += delta
+			}
+		}
+		if typeName == "response.output_text.done" {
+			text := bpString(object["text"])
+			if text == "" {
+				text = bpString(object["delta"])
+			}
+			if text != "" {
+				index := 0
+				if value, ok := object["output_index"].(float64); ok && value >= 0 {
+					index = int(value)
+				}
+				finalTextByIndex[index] = text
+			}
+		}
+		response := bpObject(object["response"])
+		directResponse := false
+		if response == nil && (object["status"] != nil || object["output"] != nil || object["id"] != nil) {
+			response = object
+			directResponse = true
+		}
+		if response == nil {
+			if isFailureTerminalEvent(typeName) {
+				terminalFailure = typeName
+			}
+			return
+		}
+		status := strings.ToLower(bpString(response["status"]))
+		if started == nil || typeName == "response.created" || typeName == "response.in_progress" {
+			started = bpCloneObject(response)
+		}
+		if isFailureTerminalEvent(typeName) || isFailureStatus(status) {
+			terminalFailure = status
+			if isFailureTerminalEvent(typeName) {
+				terminalFailure = typeName
+			}
+			if terminalFailure == "" {
+				terminalFailure = typeName
+			}
+			return
+		}
+		if isSuccessTerminalEvent(typeName) || (directResponse && (typeName == "" || typeName == "response") && isSuccessStatus(status)) {
+			completed = bpCloneObject(response)
+			if isSuccessTerminalEvent(typeName) || bpString(completed["status"]) == "" || completed["status"] == "done" || completed["status"] == "finished" {
+				completed["status"] = "completed"
 			}
 		}
 	}
@@ -913,6 +1025,11 @@ func bpParseSSEFinal(raw []byte) (map[string]any, error) {
 		line := strings.TrimSuffix(reader.Text(), "\r")
 		if line == "" {
 			flush()
+			eventName = ""
+			continue
+		}
+		if strings.HasPrefix(line, "event:") {
+			eventName = strings.TrimSpace(strings.TrimPrefix(line, "event:"))
 			continue
 		}
 		if strings.HasPrefix(line, "data:") {
@@ -923,8 +1040,64 @@ func bpParseSSEFinal(raw []byte) (map[string]any, error) {
 	if err := reader.Err(); err != nil {
 		return nil, err
 	}
+	if terminalFailure != "" {
+		return nil, fmt.Errorf("BPS 流响应以 %s 结束", terminalFailure)
+	}
+	if completed == nil && (len(finishedItems) > 0 || len(textByIndex) > 0 || len(finalTextByIndex) > 0) {
+		if started == nil {
+			started = map[string]any{}
+		}
+		completed = bpCloneObject(started)
+		completed["status"] = "completed"
+		outputByIndex := map[int]any{}
+		for index, item := range finishedItems {
+			outputByIndex[index] = item
+		}
+		textIndices := map[int]struct{}{}
+		for index := range textByIndex {
+			textIndices[index] = struct{}{}
+		}
+		for index := range finalTextByIndex {
+			textIndices[index] = struct{}{}
+		}
+		for index := range textIndices {
+			if _, exists := outputByIndex[index]; exists {
+				continue
+			}
+			text := finalTextByIndex[index]
+			if text == "" {
+				text = textByIndex[index]
+			}
+			if text != "" {
+				outputByIndex[index] = map[string]any{"type": "message", "role": "assistant", "status": "completed", "content": []any{map[string]any{"type": "output_text", "text": text, "annotations": []any{}}}}
+			}
+		}
+		indices := append([]int(nil), finishedOrder...)
+		for index := range outputByIndex {
+			found := false
+			for _, existing := range indices {
+				if existing == index {
+					found = true
+					break
+				}
+			}
+			if !found {
+				indices = append(indices, index)
+			}
+		}
+		if len(indices) > 0 {
+			sort.Ints(indices)
+			output := make([]any, 0, len(indices))
+			for _, index := range indices {
+				if item, exists := outputByIndex[index]; exists {
+					output = append(output, item)
+				}
+			}
+			completed["output"] = output
+		}
+	}
 	if completed == nil {
-		return nil, fmt.Errorf("BPS 流响应缺少 response.completed")
+		return nil, fmt.Errorf("BPS 流响应没有可完成的响应对象")
 	}
 	return completed, nil
 }

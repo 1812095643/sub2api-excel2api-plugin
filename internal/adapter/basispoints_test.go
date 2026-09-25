@@ -254,3 +254,84 @@ func TestDirectUserImageRejectsInvalidDataURL(t *testing.T) {
 		t.Fatalf("invalid data URL was accepted: %v", err)
 	}
 }
+
+func TestBPSStreamAcceptsResponseDoneEnvelope(t *testing.T) {
+	raw := []byte("event: response.done\ndata: {\"type\":\"response.done\",\"response\":{\"id\":\"resp_done\",\"status\":\"completed\",\"output\":[]}}\n\ndata: [DONE]\n\n")
+	response, err := bpParseSSEFinal(raw)
+	if err != nil || response["id"] != "resp_done" || response["status"] != "completed" {
+		t.Fatalf("response.done was not accepted: %#v err=%v", response, err)
+	}
+}
+
+func TestBPSStreamAcceptsDirectCompletedResponse(t *testing.T) {
+	raw := []byte("data: {\"id\":\"resp_direct\",\"status\":\"completed\",\"output\":[]}\n\n")
+	response, err := bpParseSSEFinal(raw)
+	if err != nil || response["id"] != "resp_direct" || response["status"] != "completed" {
+		t.Fatalf("direct completed response was not accepted: %#v err=%v", response, err)
+	}
+}
+
+func TestBPSStreamSynthesizesCompletionFromFinishedOutputItems(t *testing.T) {
+	raw := []byte("event: response.created\ndata: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_items\",\"status\":\"in_progress\",\"output\":[]}}\n\nevent: response.output_item.done\ndata: {\"type\":\"response.output_item.done\",\"output_index\":0,\"item\":{\"type\":\"message\",\"role\":\"assistant\",\"content\":[{\"type\":\"output_text\",\"text\":\"ok\"}]}}\n\ndata: [DONE]\n\n")
+	response, err := bpParseSSEFinal(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response["status"] != "completed" || len(response["output"].([]any)) != 1 {
+		t.Fatalf("finished output item was not synthesized: %#v", response)
+	}
+}
+
+func TestBPSStreamSynthesizesCompletionFromOutputTextDeltas(t *testing.T) {
+	raw := []byte("event: response.created\ndata: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_text\",\"status\":\"in_progress\",\"output\":[]}}\n\nevent: response.output_text.delta\ndata: {\"type\":\"response.output_text.delta\",\"output_index\":0,\"delta\":\"hello\"}\n\ndata: [DONE]\n\n")
+	response, err := bpParseSSEFinal(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(bpJSON(response["output"])), "hello") {
+		t.Fatalf("output text delta was not synthesized: %#v", response)
+	}
+}
+
+func TestBPSStreamSynthesizesCompletionFromOutputTextDone(t *testing.T) {
+	raw := []byte("event: response.created\ndata: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_text_done\",\"status\":\"in_progress\",\"output\":[]}}\n\nevent: response.output_text.done\ndata: {\"type\":\"response.output_text.done\",\"output_index\":0,\"text\":\"final text\"}\n\ndata: [DONE]\n\n")
+	response, err := bpParseSSEFinal(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(bpJSON(response["output"])), "final text") {
+		t.Fatalf("output text done was not synthesized: %#v", response)
+	}
+}
+
+func TestBPSStreamRejectsFailureEnvelope(t *testing.T) {
+	raw := []byte("event: response.created\ndata: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_failed\",\"status\":\"in_progress\",\"output\":[]}}\n\nevent: response.failed\ndata: {\"type\":\"response.failed\",\"response\":{\"id\":\"resp_failed\",\"status\":\"failed\",\"error\":{\"message\":\"upstream unavailable\"}}}\n\ndata: [DONE]\n\n")
+	response, err := bpParseSSEFinal(raw)
+	if err == nil || response != nil || !strings.Contains(err.Error(), "response.failed") {
+		t.Fatalf("failure envelope was accepted: response=%#v err=%v", response, err)
+	}
+}
+
+func TestBPSStreamRejectsIncompleteEnvelope(t *testing.T) {
+	raw := []byte("event: response.incomplete\ndata: {\"type\":\"response.incomplete\",\"response\":{\"id\":\"resp_incomplete\",\"status\":\"incomplete\",\"output\":[]}}\n\ndata: [DONE]\n\n")
+	response, err := bpParseSSEFinal(raw)
+	if err == nil || response != nil || !strings.Contains(err.Error(), "response.incomplete") {
+		t.Fatalf("incomplete envelope was accepted: response=%#v err=%v", response, err)
+	}
+}
+
+func TestBPSStreamRejectsIncompleteFinishedOutputItem(t *testing.T) {
+	raw := []byte("event: response.created\ndata: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_item_incomplete\",\"status\":\"in_progress\",\"output\":[]}}\n\nevent: response.output_item.done\ndata: {\"type\":\"response.output_item.done\",\"output_index\":0,\"item\":{\"type\":\"message\",\"status\":\"incomplete\",\"role\":\"assistant\",\"content\":[]}}\n\ndata: [DONE]\n\n")
+	response, err := bpParseSSEFinal(raw)
+	if err == nil || response != nil || !strings.Contains(err.Error(), "incomplete") {
+		t.Fatalf("incomplete output item was accepted: response=%#v err=%v", response, err)
+	}
+}
+
+func TestBPSStreamDoesNotTreatDoneMarkerAloneAsCompletion(t *testing.T) {
+	raw := []byte("event: response.created\ndata: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_empty\",\"status\":\"in_progress\",\"output\":[]}}\n\ndata: [DONE]\n\n")
+	response, err := bpParseSSEFinal(raw)
+	if err == nil || response != nil || !strings.Contains(err.Error(), "没有可完成的响应对象") {
+		t.Fatalf("empty stream was accepted: response=%#v err=%v", response, err)
+	}
+}

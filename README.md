@@ -2,11 +2,11 @@
 
 这是一个面向 Sub2API 0.2.7 的 OpenAI OAuth Transport 插件。它把指定的 OpenAI OAuth 账号接入 ChatGPT Excel 后端 `https://bps.openai.com/basispoints/api/responses`，并在 BPS 不接受客户端原生 `tools` 的情况下，通过固定的 `run_officejs` 隧道保持 Codex CLI 工具调用协议。
 
-当前版本：`0.6.0`
+当前版本：`0.7.0`
 
-最新版安装包：`dist/openai-account-health-0.6.0-linux-amd64.s2plugin`
+最新版安装包：`dist/openai-account-health-0.7.0-linux-amd64.s2plugin`
 
-SHA-256：`8cd98d5bf65d5ff1e555e31698e69c9c561ec314166bf1073a4fc5bff22bed77`
+SHA-256：见 `dist/checksums-openai-account-health-0.7.0.txt`
 
 ## 能做什么
 
@@ -37,7 +37,7 @@ SHA-256：`8cd98d5bf65d5ff1e555e31698e69c9c561ec314166bf1073a4fc5bff22bed77`
 ## 安装
 
 1. 打开 Sub2API 管理后台的插件管理页。
-2. 上传 `dist/openai-account-health-0.6.0-linux-amd64.s2plugin`。
+2. 上传 `dist/openai-account-health-0.7.0-linux-amd64.s2plugin`。
 3. 确认签名状态为可信，然后启用插件。
 4. 打开插件配置页，开启 **Excel2API**，逐行填写账号 ID。
 5. 开启 **启用测试**，填写至少一个检测模型并保存。

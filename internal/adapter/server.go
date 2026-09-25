@@ -26,7 +26,7 @@ import (
 
 const (
 	PluginID = "local.personal.openai-account-health"
-	Version  = "0.6.0"
+	Version  = "0.7.0"
 )
 
 type diagnosticResult struct {
@@ -308,9 +308,17 @@ func diagnosticOutput(raw []byte) (string, bool) {
 		if kind == "response.output_text.delta" {
 			output.WriteString(gjson.Get(payload, "delta").String())
 		}
-		if kind == "response.completed" {
+		if kind == "response.output_text.done" {
+			completedText = gjson.Get(payload, "text").String()
+			completed = true
+		}
+		if kind == "response.completed" || kind == "response.done" || kind == "response.finished" {
 			completed = true
 			completedText = diagnosticResponseText(gjson.Get(payload, "response"))
+		}
+		if kind == "response.failed" || kind == "response.incomplete" || kind == "response.cancelled" || kind == "response.error" {
+			completed = false
+			completedText = ""
 		}
 	}
 	if streamed {

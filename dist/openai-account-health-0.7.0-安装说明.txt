@@ -1,0 +1,14 @@
+OpenAI 账号健康插件 v0.7.0
+
+文件：openai-account-health-0.7.0-linux-amd64.s2plugin
+SHA-256：bbac0a2610606bee55fafef826b5c7261ec9d1cd19e099ec2ad09b66b6a92007
+
+本版本修复 BPS 流响应结束事件兼容问题：支持 response.done、response.finished、直接完成响应对象、output_text.done、已完成输出项和文本增量；失败、未完成和取消事件不会再被错误合成为成功响应。
+
+安装
+1. 在 Sub2API 管理后台插件管理页上传 .s2plugin。
+2. 确认签名可信并启用插件。
+3. 配置 Excel2API 开关和账号 ID。
+4. 开启“启用测试”，保存后点击“保存并测试 Excel2API”。
+
+详细用法、YAML 配置、主配置公钥和管理 API 示例见仓库 README。

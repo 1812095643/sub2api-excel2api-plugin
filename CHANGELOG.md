@@ -1,5 +1,12 @@
 # 更新记录
 
+## 0.7.0
+
+- 修复 BPS 流只返回 `response.done`、`response.finished` 或直接完成响应对象时被误判为缺少 `response.completed`。
+- 支持从 `response.output_text.done`、完整输出项和文本增量合成标准完成响应。
+- `response.failed`、`response.incomplete`、`response.cancelled` 和失败状态不再被合成为成功响应，并返回明确的上游结束类型。
+- 降智检测同步识别 `response.done`、`response.finished`、`response.output_text.done` 及失败结束事件。
+
 ## 0.6.0
 
 - 固定使用 Excel2API BPS 工具隧道，不拆分多种路由模式。

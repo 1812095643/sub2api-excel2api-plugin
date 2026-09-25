@@ -1,0 +1,1 @@
+bbac0a2610606bee55fafef826b5c7261ec9d1cd19e099ec2ad09b66b6a92007  openai-account-health-0.7.0-linux-amd64.s2plugin
