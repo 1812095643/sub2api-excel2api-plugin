@@ -50,7 +50,7 @@ func (c *healthConfig) directFor(start *pluginv1.ForwardRequestStart) bool {
 	return false
 }
 
-func (s *Server) prepareDirectBody(start *pluginv1.ForwardRequestStart, body []byte) ([]byte, map[string]any, error) {
+func (s *Server) prepareDirectBody(start *pluginv1.ForwardRequestStart, body []byte) (map[string]any, map[string]any, error) {
 	plain, err := decodeBody(body, strings.ToLower(strings.TrimSpace(headerValue(start.Headers, "Content-Encoding"))))
 	if err != nil {
 		return nil, nil, &directRequestError{http.StatusBadRequest, "invalid_request_body", err.Error()}
@@ -63,7 +63,7 @@ func (s *Server) prepareDirectBody(start *pluginv1.ForwardRequestStart, body []b
 	if err != nil {
 		return nil, nil, &directRequestError{http.StatusBadRequest, "invalid_request_body", err.Error()}
 	}
-	return bpJSON(prepared), source, nil
+	return prepared, source, nil
 }
 
 // JWT 只用于读取账号标识；不以本地解码结果授予权限，Token 仍由上游校验。
@@ -105,6 +105,24 @@ func validDirectIdentityValue(value string) bool {
 	return true
 }
 
+func setDirectBPSIdentityHeaders(header http.Header, token, accountID string) {
+	header.Set("Origin", "https://bps.openai.com")
+	header.Set("Authorization", "Bearer "+token)
+	header.Set("chatgpt-account-id", accountID)
+	header.Set("x-openai-account-id", accountID)
+	header.Set("x-basispoints-auth-mode", "chatgpt")
+	header.Set("x-openai-internal-basispoints-client-agent-profile", "excel")
+	header.Set("x-openai-internal-basispoints-client-editor", "excel")
+	header.Set("x-openai-internal-basispoints-client-host", "office")
+	header.Set("x-openai-internal-basispoints-client-platform", "excel")
+	header.Set("x-openai-internal-basispoints-client-platform-class", "PC")
+	header.Set("x-openai-internal-basispoints-client-product", "basispoints-excel-plugin")
+	header.Set("x-openai-internal-basispoints-client-runtime", "desktop")
+	header.Set("x-openai-internal-basispoints-office-host", "Excel")
+	header.Set("x-openai-internal-basispoints-office-platform", "PC")
+	header.Set("User-Agent", "openai-account-health/"+Version)
+}
+
 func buildDirectHTTPRequest(ctx context.Context, start *pluginv1.ForwardRequestStart, body []byte, identity *pluginv1.ResolveOutboundIdentityResponse) (*http.Request, error) {
 	if identity == nil || !identity.Found || identity.AccountId != start.AccountId || identity.Platform != "openai" || identity.AccountType != "oauth" {
 		return nil, &directRequestError{http.StatusBadGateway, "direct_identity_unavailable", "无法取得指定 OpenAI OAuth 账号的出站身份，请检查账号状态。"}
@@ -134,21 +152,7 @@ func buildDirectHTTPRequest(ctx context.Context, start *pluginv1.ForwardRequestS
 		request.Header.Set("Accept", "text/event-stream")
 	}
 	request.Header.Set("Accept-Encoding", "identity")
-	request.Header.Set("Origin", "https://bps.openai.com")
-	request.Header.Set("Authorization", "Bearer "+token)
-	request.Header.Set("chatgpt-account-id", accountID)
-	request.Header.Set("x-openai-account-id", accountID)
-	request.Header.Set("x-basispoints-auth-mode", "chatgpt")
-	request.Header.Set("x-openai-internal-basispoints-client-agent-profile", "excel")
-	request.Header.Set("x-openai-internal-basispoints-client-editor", "excel")
-	request.Header.Set("x-openai-internal-basispoints-client-host", "office")
-	request.Header.Set("x-openai-internal-basispoints-client-platform", "excel")
-	request.Header.Set("x-openai-internal-basispoints-client-platform-class", "PC")
-	request.Header.Set("x-openai-internal-basispoints-client-product", "basispoints-excel-plugin")
-	request.Header.Set("x-openai-internal-basispoints-client-runtime", "desktop")
-	request.Header.Set("x-openai-internal-basispoints-office-host", "Excel")
-	request.Header.Set("x-openai-internal-basispoints-office-platform", "PC")
-	request.Header.Set("User-Agent", "openai-account-health/"+Version)
+	setDirectBPSIdentityHeaders(request.Header, token, accountID)
 	return request, nil
 }
 
@@ -239,9 +243,15 @@ func (s *Server) directResponse(ctx context.Context, start *pluginv1.ForwardRequ
 	if err != nil {
 		return nil, &directRequestError{http.StatusBadGateway, "direct_proxy_unavailable", err.Error()}
 	}
+	if err := rewriteDirectUserImages(prepared, func(image inlineImage) (string, error) {
+		return s.uploadDirectImage(ctx, client, identity, image)
+	}); err != nil {
+		return nil, err
+	}
+	preparedBody := bpJSON(prepared)
 	for attempt := 0; attempt < 2; attempt++ {
 		// 新入口发送标准 JSON，不依赖旧线路采用的压缩编码；正文语义保持不变。
-		request, requestErr := buildDirectHTTPRequest(ctx, start, prepared, identity)
+		request, requestErr := buildDirectHTTPRequest(ctx, start, preparedBody, identity)
 		if requestErr != nil {
 			return nil, requestErr
 		}

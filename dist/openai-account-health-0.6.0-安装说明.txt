@@ -1,0 +1,14 @@
+OpenAI 账号健康插件 v0.6.0
+
+文件：openai-account-health-0.6.0-linux-amd64.s2plugin
+SHA-256：8cd98d5bf65d5ff1e555e31698e69c9c561ec314166bf1073a4fc5bff22bed77
+
+本版本修复图片问题：用户消息中的 data:image 会上传到 BPS 同源 /basispoints/api/attachments，正文改为 file_id；工具结果中的截图保持原格式回放。
+
+安装
+1. 在 Sub2API 管理后台插件管理页上传 .s2plugin。
+2. 确认签名可信并启用插件。
+3. 配置 Excel2API 开关和账号 ID。
+4. 开启“启用测试”，保存后点击“保存并测试 Excel2API”。
+
+详细用法、YAML 配置、主配置公钥和管理 API 示例见仓库 README。

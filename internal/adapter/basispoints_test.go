@@ -131,14 +131,17 @@ func TestBPSNativeRunOfficeJSRoundTripKeepsOriginalItem(t *testing.T) {
 	}
 }
 
-func TestBPSRejectsDataImageBeforeUpstream(t *testing.T) {
+func TestBPSPrepareBodyKeepsInlineImageUntilAttachmentUpload(t *testing.T) {
 	server := New(nil)
-	_, err := server.bpPrepareResponsesBody(map[string]any{
+	prepared, err := server.bpPrepareResponsesBody(map[string]any{
 		"model": "gpt-6-astra",
 		"input": []any{map[string]any{"role": "user", "content": []any{map[string]any{"type": "input_image", "image_url": "data:image/png;base64,AAAA"}}}},
 	})
-	if err == nil || !strings.Contains(err.Error(), "HTTPS 图片 URL") {
-		t.Fatalf("unexpected data image result: %v", err)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(bpJSON(prepared["input"])), "data:image/png") {
+		t.Fatal("inline image should remain until the attachment upload step")
 	}
 }
 
@@ -201,5 +204,53 @@ func TestBPSMalformedTunnelCallIsRejected(t *testing.T) {
 	_, _, _, err := server.bpTransformResponse(bpJSON(map[string]any{"status": "completed", "output": []any{native}}), map[string]any{"model": "gpt-6-astra", "input": []any{map[string]any{"role": "user", "content": "x"}}})
 	if err == nil || !strings.Contains(err.Error(), "run_officejs") {
 		t.Fatalf("malformed tunnel call was not rejected: %v", err)
+	}
+}
+
+func TestDirectUserImageIsReplacedWithFileIDAndToolScreenshotIsPreserved(t *testing.T) {
+	dataURL := "data:image/png;base64,aGVsbG8="
+	body := map[string]any{
+		"model": "gpt-6-astra",
+		"input": []any{
+			map[string]any{
+				"type": "message", "role": "user",
+				"content": []any{map[string]any{"type": "input_image", "image_url": dataURL, "detail": "high"}},
+			},
+			map[string]any{
+				"type": "function_call_output", "call_id": "call-shot",
+				"output": []any{map[string]any{"type": "input_image", "image_url": dataURL}},
+			},
+		},
+	}
+	var uploaded inlineImage
+	err := rewriteDirectUserImages(body, func(image inlineImage) (string, error) {
+		uploaded = image
+		return "file_uploaded", nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if uploaded.mediaType != "image/png" || string(uploaded.data) != "hello" {
+		t.Fatalf("decoded image mismatch: %#v", uploaded)
+	}
+	userContent := bpObject(bpObject(body["input"].([]any)[0])["content"].([]any)[0])
+	if userContent["file_id"] != "file_uploaded" || userContent["image_url"] != nil || userContent["detail"] != "high" {
+		t.Fatalf("user image was not rewritten: %#v", userContent)
+	}
+	toolOutput := bpObject(body["input"].([]any)[1])
+	if !strings.Contains(string(bpJSON(toolOutput["output"])), dataURL) {
+		t.Fatal("tool result screenshot should remain available for BPS replay")
+	}
+}
+
+func TestDirectUserImageRejectsInvalidDataURL(t *testing.T) {
+	err := rewriteDirectUserImages(map[string]any{
+		"input": []any{map[string]any{
+			"type": "message", "role": "user",
+			"content": []any{map[string]any{"type": "input_image", "image_url": "data:image/png;base64,%%%"}},
+		}},
+	}, func(inlineImage) (string, error) { return "file", nil })
+	if err == nil || !strings.Contains(err.Error(), "data URL") {
+		t.Fatalf("invalid data URL was accepted: %v", err)
 	}
 }

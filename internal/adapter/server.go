@@ -3,6 +3,7 @@ package adapter
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -25,7 +26,7 @@ import (
 
 const (
 	PluginID = "local.personal.openai-account-health"
-	Version  = "0.5.0"
+	Version  = "0.6.0"
 )
 
 type diagnosticResult struct {
@@ -63,10 +64,12 @@ type Server struct {
 	basispointsMu      sync.Mutex
 	basispointsCalls   map[string]map[string]any
 	basispointsCallIDs []string
+	attachmentMu       sync.Mutex
+	attachmentCache    map[[sha256.Size]byte]string
 }
 
 func New(child *Child) *Server {
-	server := &Server{child: child, direct: newDirectTransport(), basispointsCalls: map[string]map[string]any{}}
+	server := &Server{child: child, direct: newDirectTransport(), basispointsCalls: map[string]map[string]any{}, attachmentCache: map[[sha256.Size]byte]string{}}
 	server.config.Store(defaultHealthConfig())
 	return server
 }

@@ -14,7 +14,7 @@
 <main class="shell">
   <header class="head">
     <h1>OpenAI 账号健康</h1>
-    <p class="sub">Excel2API、Codex 工具隧道与降智检测 · v0.5.0</p>
+    <p class="sub">Excel2API、Codex 工具隧道与降智检测 · v0.6.0</p>
   </header>
 
   <form id="config-form" autocomplete="off">
@@ -37,7 +37,7 @@
         <small class="hint">填写 Sub2API 账号列表中的数字 ID。留空不会应用到全部账号。</small>
       </label>
       <p class="hint">目标：<code>https://bps.openai.com/basispoints/api/responses</code></p>
-      <p class="hint">客户端工具会转换为自然语言目录并通过 <code>run_officejs</code> 桥接；用户图片必须使用可访问的 HTTPS URL，工具返回的截图可以继续回放。其他接口（如 compact）沿用原线路。</p>
+      <p class="hint">客户端工具会转换为自然语言目录并通过 <code>run_officejs</code> 桥接；用户消息中的 data:image 会先上传为 BPS file_id，工具返回的截图保持原格式回放。其他接口（如 compact）沿用原线路。</p>
     </section>
 
     <section class="card" aria-labelledby="excel2api-test-title">

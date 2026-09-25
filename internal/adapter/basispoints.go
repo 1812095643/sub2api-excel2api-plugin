@@ -520,43 +520,6 @@ func bpContextManagement(source map[string]any) []any {
 	return []any{map[string]any{"type": "compaction", "compact_threshold": 200000}}
 }
 
-func bpValidateImages(value any) error {
-	switch typed := value.(type) {
-	case []any:
-		for _, child := range typed {
-			if err := bpValidateImages(child); err != nil {
-				return err
-			}
-		}
-	case map[string]any:
-		if strings.EqualFold(bpString(typed["type"]), "input_image") {
-			if _, exists := typed["image_base64"]; exists {
-				return fmt.Errorf("BPS 直连不接受 data:image 或 image_base64，请使用可公开访问的 HTTPS 图片 URL；截图请通过工具结果返回")
-			}
-			imageURL := typed["image_url"]
-			if object := bpObject(imageURL); object != nil {
-				imageURL = object["url"]
-			}
-			urlValue := bpString(imageURL)
-			if urlValue == "" {
-				return fmt.Errorf("图片输入缺少 image_url；BPS 直连只接受 HTTPS 图片 URL")
-			}
-			if strings.HasPrefix(strings.ToLower(urlValue), "data:") {
-				return fmt.Errorf("BPS 直连不接受 data:image 图片，请使用可公开访问的 HTTPS 图片 URL；截图请通过工具结果返回")
-			}
-			if !strings.HasPrefix(strings.ToLower(urlValue), "https://") {
-				return fmt.Errorf("BPS 直连只接受 HTTPS 图片 URL；当前图片地址不是 HTTPS")
-			}
-		}
-		for _, child := range typed {
-			if err := bpValidateImages(child); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
 func bpRequestHasToolResult(source map[string]any) bool {
 	items, ok := source["input"].([]any)
 	if !ok {
@@ -601,9 +564,6 @@ func (s *Server) bpPrepareResponsesBody(source map[string]any) (map[string]any, 
 	model := strings.TrimSpace(bpString(source["model"]))
 	if model == "" {
 		return nil, fmt.Errorf("直连请求缺少 model")
-	}
-	if err := bpValidateImages(source["input"]); err != nil {
-		return nil, err
 	}
 	allowed := bpClientToolSpecs(source)
 	inputItems := s.bpTranslateInputItems(source["input"], allowed)

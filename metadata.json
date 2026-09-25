@@ -1,6 +1,6 @@
 {
-  "version": "0.5.0",
+  "version": "0.6.0",
   "name": "OpenAI 账号健康",
-  "description": "复用 Codex CLI 工具目录的 Excel2API 隧道、请求时区与并行检测。",
+  "description": "复用 Codex CLI 工具目录并支持 BPS 图片附件上传的 Excel2API 隧道、请求时区与并行检测。",
   "author": "个人构建"
 }

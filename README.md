@@ -2,11 +2,11 @@
 
 这是一个面向 Sub2API 0.2.7 的 OpenAI OAuth Transport 插件。它把指定的 OpenAI OAuth 账号接入 ChatGPT Excel 后端 `https://bps.openai.com/basispoints/api/responses`，并在 BPS 不接受客户端原生 `tools` 的情况下，通过固定的 `run_officejs` 隧道保持 Codex CLI 工具调用协议。
 
-当前版本：`0.5.0`
+当前版本：`0.6.0`
 
-最新版安装包：`dist/openai-account-health-0.5.0-linux-amd64.s2plugin`
+最新版安装包：`dist/openai-account-health-0.6.0-linux-amd64.s2plugin`
 
-SHA-256：`c3631f9f788af401ed4b53b4bc83490f3da08f842463d55c4edf374ae7b37bff`
+SHA-256：`8cd98d5bf65d5ff1e555e31698e69c9c561ec314166bf1073a4fc5bff22bed77`
 
 ## 能做什么
 
@@ -17,7 +17,7 @@ SHA-256：`c3631f9f788af401ed4b53b4bc83490f3da08f842463d55c4edf374ae7b37bff`
 - **错误防护**：按调用 ID 维护工具状态，完整读取并校验工具参数；半截 JSON、未知工具、schema 不匹配和连续空回合会明确报错，工具结果后的空回合最多自动重试一次。
 - **请求时区**：默认 `Asia/Singapore`，支持按账号覆盖；已有 `Accept-Language` 会统一为英文。
 - **降智检测**：多个模型并行测试、总开关、指定账号、只测试启用调度账号、Cron 和条件任务。
-- **图片边界**：Excel2API 用户图片要求 `https://` URL；BPS 拒绝的 `data:image` 会在插件本地提示，不会继续发出。
+- **图片上传**：用户消息中的 `data:image` 会上传到 BPS 同源附件接口并替换为 `file_id`；工具结果里的截图保持原格式回放。上传失败会返回明确错误。
 
 工具执行器仍由 Codex CLI/Sub2API 客户端执行。插件不会执行 shell、`apply_patch`、MCP 或图片工具，也不会把 OAuth Token 写入配置、UI 或日志。
 
@@ -37,7 +37,7 @@ SHA-256：`c3631f9f788af401ed4b53b4bc83490f3da08f842463d55c4edf374ae7b37bff`
 ## 安装
 
 1. 打开 Sub2API 管理后台的插件管理页。
-2. 上传 `dist/openai-account-health-0.5.0-linux-amd64.s2plugin`。
+2. 上传 `dist/openai-account-health-0.6.0-linux-amd64.s2plugin`。
 3. 确认签名状态为可信，然后启用插件。
 4. 打开插件配置页，开启 **Excel2API**，逐行填写账号 ID。
 5. 开启 **启用测试**，填写至少一个检测模型并保存。
@@ -195,9 +195,9 @@ Codex CLI 的自由文本工具必须返回 `custom_tool_call`，JSON function �
 
 Codex 的协作、代码模式和插件工具可能放在 namespace 下。插件通过 namespace 展平名定位工具，再恢复 `name + namespace`。
 
-**为什么图片需要 HTTPS？**
+**图片现在怎么处理？**
 
-BPS 拒绝标准 Responses 的 `data:image/...;base64,...` 用户图片。使用可访问的 HTTPS URL；工具返回的截图可以作为工具结果继续回放。
+BPS 拒绝标准 Responses 的 `data:image/...;base64,...` 用户图片。插件会先按 Excel 加载项的附件接口上传用户图片，再把正文中的图片替换为 `file_id`；已经是 HTTPS URL 的图片直接保留，工具返回的截图不上传并继续回放。
 
 **为什么没有直接把 Codex 执行器复制进来？**
 
