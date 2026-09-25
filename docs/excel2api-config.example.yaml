@@ -1,0 +1,22 @@
+# 这是插件 UI / 管理 API 对应的业务配置记录。
+# Sub2API 0.2.7 不会自动读取此文件；请按 README 转成 JSON 后提交配置 API，或在插件 UI 中填写。
+plugin_id: local.personal.openai-account-health
+config:
+  default_timezone: Asia/Singapore
+  account_timezones:
+    "123": America/Los_Angeles
+    "456": Asia/Tokyo
+  direct_enabled: true
+  direct_account_ids:
+    - 123
+    - 456
+  diagnostic_enabled: true
+  diagnostic_models:
+    - gpt-5.6-sol
+    - gpt-6-astra
+  diagnostic_account_ids: []
+  diagnostic_schedulable_only: true
+  diagnostic_concurrency: 4
+  schedule_mode: cron
+  schedule_cron: "*/30 * * * *"
+  schedule_condition: has_schedulable_accounts

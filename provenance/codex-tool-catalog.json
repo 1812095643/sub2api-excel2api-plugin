@@ -1,0 +1,896 @@
+{
+  "source": {
+    "repository": "openai/codex",
+    "commit": "5c8fc15cc99241d3a1a415a629841540cdff4b28",
+    "registry": "codex-rs/core/src/tools/spec_plan.rs"
+  },
+  "tools": [
+    {
+      "type": "function",
+      "name": "exec_command",
+      "description": "Run a shell command in the current environment.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cmd": {
+            "type": "string",
+            "description": "Shell command to run."
+          },
+          "workdir": {
+            "type": "string"
+          },
+          "yield_time_ms": {
+            "type": "integer"
+          },
+          "max_output_tokens": {
+            "type": "integer"
+          },
+          "shell": {
+            "type": "string"
+          },
+          "tty": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "cmd"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "type": "custom",
+      "name": "apply_patch",
+      "description": "Apply a patch to create, update, move, or delete files. The input is the raw patch text.",
+      "format": {
+        "type": "grammar",
+        "syntax": "lark",
+        "definition": "*** Begin Patch ..."
+      }
+    },
+    {
+      "type": "function",
+      "name": "write_stdin",
+      "description": "Write input to an existing interactive command and read its output.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "session_id": {
+            "type": "integer"
+          },
+          "chars": {
+            "type": "string"
+          },
+          "yield_time_ms": {
+            "type": "integer"
+          },
+          "max_output_tokens": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "session_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "type": "function",
+      "name": "view_image",
+      "description": "View a local image file.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string",
+            "enum": [
+              "high",
+              "original"
+            ]
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "type": "function",
+      "name": "update_plan",
+      "description": "Update the current task plan with concise steps and statuses.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "plan": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "step": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "pending",
+                    "in_progress",
+                    "completed"
+                  ]
+                }
+              },
+              "required": [
+                "step",
+                "status"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "plan"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "type": "function",
+      "name": "request_user_input",
+      "description": "Ask the user one or more questions during ongoing work.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "questions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "header": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": "string"
+                },
+                "question": {
+                  "type": "string"
+                },
+                "options": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "label": {
+                        "type": "string"
+                      },
+                      "description": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "label",
+                      "description"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "header",
+                "id",
+                "question"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "questions"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "type": "function",
+      "name": "request_user_input_async",
+      "description": "Ask the user questions asynchronously during ongoing work.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "questions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "header": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": "string"
+                },
+                "question": {
+                  "type": "string"
+                },
+                "options": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "label": {
+                        "type": "string"
+                      },
+                      "description": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "label",
+                      "description"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "header",
+                "id",
+                "question"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "questions"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "type": "function",
+      "name": "request_permissions",
+      "description": "Request additional filesystem or network permissions.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "permissions": {
+            "type": "object",
+            "properties": {
+              "file_system": {
+                "type": "object",
+                "properties": {
+                  "read": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "write": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "additionalProperties": false
+              },
+              "network": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "permissions"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "type": "function",
+      "name": "current_time",
+      "description": "Return the current time for a UTC offset.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "utc_offset": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "utc_offset"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "type": "function",
+      "name": "get_context_remaining",
+      "description": "Get the remaining context budget for the current turn.",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "type": "function",
+      "name": "sleep",
+      "description": "Pause for a bounded duration.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "duration_ms": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "duration_ms"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "type": "function",
+      "name": "wait_for_environment",
+      "description": "Wait for a remote environment to become ready.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "environment_id": {
+            "type": "string"
+          },
+          "timeout_ms": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "environment_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "type": "function",
+      "name": "list_mcp_resources",
+      "description": "List resources exposed by an MCP server.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "server": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "type": "function",
+      "name": "list_mcp_resource_templates",
+      "description": "List resource templates exposed by an MCP server.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "server": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "type": "function",
+      "name": "read_mcp_resource",
+      "description": "Read a resource from an MCP server.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "server": {
+            "type": "string"
+          },
+          "uri": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "server",
+          "uri"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "type": "function",
+      "name": "tool_search",
+      "description": "Search deferred tools and return matching tool definitions.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "type": "function",
+      "name": "web_search",
+      "description": "Search the web for current information.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "queries": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "domains": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "recency": {
+            "type": "integer"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "type": "function",
+      "name": "new_context_window",
+      "description": "Start a new context window while preserving the task.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "type": "function",
+      "name": "send_message_to_user",
+      "description": "Send a message to the user without ending the task.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "type": "function",
+      "name": "send_message_to_user_async",
+      "description": "Send a message to the user asynchronously.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "type": "function",
+      "name": "request_plugin_install",
+      "description": "Request installation of a Codex plugin.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "plugin_id": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "plugin_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "type": "function",
+      "name": "list_available_plugins_to_install",
+      "description": "List plugins available for installation.",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "type": "function",
+      "name": "list_agents",
+      "description": "List live collaboration agents.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path_prefix": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "type": "function",
+      "name": "spawn_agent",
+      "description": "Start a bounded collaboration agent task.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "task_name": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "thinking": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "task_name",
+          "message"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "type": "function",
+      "name": "send_message",
+      "description": "Send a message to an existing collaboration agent.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "target": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "message"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "type": "function",
+      "name": "followup_task",
+      "description": "Send a follow-up task to an existing collaboration agent.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "target": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "message"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "type": "function",
+      "name": "interrupt_agent",
+      "description": "Interrupt an agent's current turn.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "target": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "target"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "type": "function",
+      "name": "resume_agent",
+      "description": "Resume a previously closed agent.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "type": "function",
+      "name": "close_agent",
+      "description": "Close an agent that is no longer needed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "target": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "target"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "type": "function",
+      "name": "wait_agent",
+      "description": "Wait for collaboration agents to update.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "targets": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "thread_id": {
+                  "type": "string"
+                },
+                "after_cursor": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "thread_id"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "timeout_ms": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "targets"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "type": "namespace",
+      "name": "collaboration",
+      "description": "Collaboration agent tools.",
+      "tools": [
+        {
+          "type": "function",
+          "name": "spawn_agent",
+          "description": "Start a collaboration agent task.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "task_name": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "task_name",
+              "message"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "type": "function",
+          "name": "send_input",
+          "description": "Send input to an existing collaboration agent.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "target": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "interrupt": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "target"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "type": "function",
+          "name": "wait_agent",
+          "description": "Wait for collaboration agents.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "timeout_ms": {
+                "type": "integer"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        {
+          "type": "function",
+          "name": "close_agent",
+          "description": "Close a collaboration agent.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "target": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "target"
+            ],
+            "additionalProperties": false
+          }
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "test_sync_tool",
+      "description": "Run the Codex synchronous test tool.",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": true
+      }
+    },
+    {
+      "type": "function",
+      "name": "shell_command",
+      "description": "Compatibility alias for exec_command.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cmd": {
+            "type": "string"
+          },
+          "workdir": {
+            "type": "string"
+          },
+          "yield_time_ms": {
+            "type": "integer"
+          },
+          "max_output_tokens": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cmd"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "type": "namespace",
+      "name": "code_mode",
+      "description": "Code mode tools for bounded code execution.",
+      "tools": [
+        {
+          "type": "custom",
+          "name": "exec",
+          "description": "Execute a code-mode program.",
+          "format": {
+            "type": "text",
+            "syntax": "javascript",
+            "definition": "Code-mode program text."
+          }
+        },
+        {
+          "type": "function",
+          "name": "wait",
+          "description": "Wait for a code-mode program result.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "cell_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "cell_id"
+            ],
+            "additionalProperties": false
+          }
+        }
+      ]
+    },
+    {
+      "type": "namespace",
+      "name": "image_gen",
+      "description": "Image generation tools.",
+      "tools": [
+        {
+          "type": "function",
+          "name": "imagegen",
+          "description": "Generate or edit an image.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "prompt": {
+                "type": "string"
+              },
+              "referenced_image_paths": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "num_last_images_to_include": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "prompt"
+            ],
+            "additionalProperties": false
+          }
+        }
+      ]
+    }
+  ]
+}

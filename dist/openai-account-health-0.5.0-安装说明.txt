@@ -1,0 +1,21 @@
+OpenAI 账号健康插件 v0.5.0
+
+文件：openai-account-health-0.5.0-linux-amd64.s2plugin
+SHA-256：c3631f9f788af401ed4b53b4bc83490f3da08f842463d55c4edf374ae7b37bff
+
+功能
+- Excel2API：固定通过 BPS Responses 隧道访问，按账号复用授权和代理。
+- Codex CLI 工具目录：复用开源 Codex CLI 的内置工具名称、function/custom 类型、namespace 和 JSON Schema。
+- 工具协议：BPS 只接收 run_officejs；插件负责二次 JSON 解码、参数校验、完整调用项回放和工具结果续接。
+- 请求时区、英文 Accept-Language、并行降智检测、Cron/条件任务和专用 Excel2API 测试。
+
+安装
+1. 在 Sub2API 管理后台上传此 .s2plugin。
+2. 启用插件并打开配置页面。
+3. 开启 Excel2API，填写账号 ID，开启“启用测试”，保存配置。
+4. 点击“保存并测试 Excel2API”验证隧道，再使用 Codex CLI / Sub2API 请求。
+
+说明
+- 工具执行仍由客户端完成，插件不会执行 shell、apply_patch、MCP 或其他 Codex 工具。
+- Codex 工具目录来源：openai/codex 提交 5c8fc15cc99241d3a1a415a629841540cdff4b28；包内 provenance 保存目录快照和 Apache License 2.0。
+- 用户图片必须使用 HTTPS URL；data:image 会在本地拦截并提示。
