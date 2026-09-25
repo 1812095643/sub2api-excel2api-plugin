@@ -1,0 +1,17 @@
+# Secrets and local signing material
+*.pem
+*.key
+.env
+.env.*
+
+# Local build/cache output
+__pycache__/
+*.pyc
+.gocache/
+gopath/
+linux-test/
+
+# Temporary research checkouts
+work/
+outputs/
+.playwright-cli/

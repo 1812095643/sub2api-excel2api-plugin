@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <title>OpenAI 账号健康</title>
+  <link rel="stylesheet" href="./assets/styles.css" />
+  <link rel="stylesheet" href="./assets/health.css" />
+  <script defer src="./assets/bridge-v1.js"></script>
+  <script defer src="./assets/health.js"></script>
+</head>
+<body>
+<main class="shell">
+  <header class="head">
+    <h1>OpenAI 账号健康</h1>
+    <p class="sub">Excel2API、Codex 工具隧道与降智检测 · v0.5.0</p>
+  </header>
+
+  <form id="config-form" autocomplete="off">
+    <section class="card" aria-labelledby="locale-title">
+      <div class="card-head"><div><h2 id="locale-title">请求时区</h2><p class="hint">真实 OpenAI OAuth 请求按账号改写环境上下文；默认使用新加坡，不提供中国大陆及港澳台时区。</p></div></div>
+      <label class="field-label">默认时区
+        <select id="default-timezone" name="default_timezone"></select>
+      </label>
+      <label class="field-label">账号时区覆盖（每行：账号 ID = IANA 时区）
+        <textarea id="account-timezones" rows="4" spellcheck="false" placeholder="123 = America/Los_Angeles&#10;456 = Asia/Tokyo"></textarea>
+      </label>
+      <p class="hint">请求中已有的 Accept-Language 会统一为 <code>en-US,en;q=0.9</code>；没有该请求头时不会额外添加。</p>
+    </section>
+
+    <section class="card" aria-labelledby="direct-title">
+      <div class="card-head"><div><h2 id="direct-title">Excel2API</h2><p class="hint">指定账号通过 BPS Responses 接口访问 Excel2API，沿用该账号的授权和代理设置。</p></div></div>
+      <label class="check-row"><input id="direct-enabled" type="checkbox" role="switch" aria-describedby="direct-enabled-hint" disabled /> <span><strong>启用 Excel2API</strong><small id="direct-enabled-hint">只对下面列出的账号生效，保存后启用。</small></span></label>
+      <label class="field-label">Excel2API 账号 ID（每行一个）
+        <textarea id="direct-account-ids" rows="3" spellcheck="false" placeholder="123&#10;456" disabled></textarea>
+        <small class="hint">填写 Sub2API 账号列表中的数字 ID。留空不会应用到全部账号。</small>
+      </label>
+      <p class="hint">目标：<code>https://bps.openai.com/basispoints/api/responses</code></p>
+      <p class="hint">客户端工具会转换为自然语言目录并通过 <code>run_officejs</code> 桥接；用户图片必须使用可访问的 HTTPS URL，工具返回的截图可以继续回放。其他接口（如 compact）沿用原线路。</p>
+    </section>
+
+    <section class="card" aria-labelledby="excel2api-test-title">
+      <div class="card-head"><div><h2 id="excel2api-test-title">Excel2API 专用测试</h2><p class="hint">在插件内验证 BPS 请求格式、授权、代理和响应桥接。</p></div></div>
+      <p class="hint">先开启“启用测试”，保存 Excel2API 开关、账号 ID 和检测模型，再点击下面的专用按钮；测试结果会显示在“最近一次检测”。</p>
+      <div class="actions">
+        <button type="button" id="excel2api-test-button" class="primary" disabled>保存并测试 Excel2API</button>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="diagnostic-title">
+      <div class="card-head"><div><h2 id="diagnostic-title">降智检测</h2><p class="hint">选择多个 GPT 模型后按账号和模型并行发送正式 Responses 请求，并用 ModelTrace 指纹判断是否匹配。</p></div></div>
+      <label class="check-row"><input id="diagnostic-enabled" type="checkbox" role="switch" aria-describedby="diagnostic-enabled-hint" disabled /> <span><strong>启用测试</strong><small id="diagnostic-enabled-hint">关闭并保存后，停止当前检测及手动、Cron、条件任务，保留已保存的检测设置。时区、英文请求头和 Excel2API 继续生效。</small></span></label>
+      <fieldset id="diagnostic-options" class="diagnostic-options" aria-label="检测设置" disabled>
+      <label class="field-label">检测模型（每行一个）
+        <textarea id="diagnostic-models" rows="5" spellcheck="false" placeholder="gpt-5.6-sol&#10;gpt-6-astra"></textarea>
+      </label>
+      <label class="field-label">检测账号 ID（可选，每行一个）
+        <textarea id="diagnostic-account-ids" rows="3" spellcheck="false" placeholder="留空表示全部 OpenAI OAuth 账号"></textarea>
+      </label>
+      <label class="check-row"><input id="diagnostic-schedulable" type="checkbox" /> <span><strong>只检测启用调度的账号</strong><small>暂停调度的账号会跳过。</small></span></label>
+      <label class="field-label">并行数（1 到 16）
+        <input id="diagnostic-concurrency" type="number" min="1" max="16" step="1" />
+      </label>
+      <label class="field-label">自动任务模式
+        <select id="schedule-mode">
+          <option value="disabled">关闭</option>
+          <option value="cron">Cron 定时</option>
+          <option value="condition">条件触发</option>
+        </select>
+      </label>
+      <label id="schedule-cron-field" class="field-label">Cron 表达式（五段）
+        <input id="schedule-cron" type="text" spellcheck="false" placeholder="*/30 * * * *" />
+        <small class="hint">例如 */30 * * * * 表示每 30 分钟运行一次。</small>
+      </label>
+      <label id="schedule-condition-field" class="field-label">条件任务
+        <select id="schedule-condition">
+          <option value="has_schedulable_accounts">出现可调度账号时运行一次</option>
+          <option value="on_start">插件启动后运行一次</option>
+        </select>
+      </label>
+      </fieldset>
+      <div class="actions">
+        <button type="button" id="save-button" class="primary" disabled>保存配置</button>
+        <button type="button" id="test-button" disabled>保存并开始降智检测</button>
+        <span id="status" class="status" role="status">正在读取配置…</span>
+      </div>
+    </section>
+  </form>
+
+  <section class="card" aria-labelledby="results-title">
+    <div class="card-head"><div><h2 id="results-title">最近一次检测</h2><p id="results-summary" class="hint">尚未运行检测。</p></div></div>
+    <div class="stat-row" id="stats">
+      <div class="stat"><span id="stat-total" class="stat-num">0</span><span class="stat-label">总数</span></div>
+      <div class="stat stat-ok"><span id="stat-normal" class="stat-num">0</span><span class="stat-label">正常</span></div>
+      <div class="stat stat-warn"><span id="stat-degraded" class="stat-num">0</span><span class="stat-label">疑似降智</span></div>
+      <div class="stat stat-err"><span id="stat-failed" class="stat-num">0</span><span class="stat-label">请求失败</span></div>
+    </div>
+    <div id="results-list" class="results-list"></div>
+  </section>
+
+  <section class="card" aria-labelledby="runtime-title">
+    <div class="card-head"><div><h2 id="runtime-title">运行状态</h2><p id="runtime-status" class="hint">插件启用后显示实际运行状态。</p></div><button type="button" id="refresh-button" class="ghost">刷新</button></div>
+  </section>
+</main>
+</body>
+</html>
