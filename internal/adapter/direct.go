@@ -249,7 +249,9 @@ func (s *Server) directResponse(ctx context.Context, start *pluginv1.ForwardRequ
 		return nil, err
 	}
 	preparedBody := bpJSON(prepared)
-	for attempt := 0; attempt < 2; attempt++ {
+	transportReplayed := false
+	continuationRetried := false
+	for attempt := 0; attempt < 3; attempt++ {
 		// 新入口发送标准 JSON，不依赖旧线路采用的压缩编码；正文语义保持不变。
 		request, requestErr := buildDirectHTTPRequest(ctx, start, preparedBody, identity)
 		if requestErr != nil {
@@ -257,6 +259,14 @@ func (s *Server) directResponse(ctx context.Context, start *pluginv1.ForwardRequ
 		}
 		response, requestErr := client.Do(request)
 		if requestErr != nil {
+			// 连接在收到任何响应头之前断开时，上游没有返回过结果，原样重放一次
+			// 不会产生副作用。长命池化连接（尤其 HTTP/2 多路复用）会被代理或
+			// CDN 在请求间隙关闭，不重试时每次连接死亡都会连坐骑在上面的请求。
+			if !transportReplayed && ctx.Err() == nil {
+				transportReplayed = true
+				s.recordDirectTransportError(requestErr)
+				continue
+			}
 			return nil, requestErr
 		}
 		if response.StatusCode < 200 || response.StatusCode >= 300 {
@@ -272,8 +282,9 @@ func (s *Server) directResponse(ctx context.Context, start *pluginv1.ForwardRequ
 		}
 		transformed, changed, streamBody, transformErr := s.bpTransformResponse(raw, source)
 		var emptyContinuation *bpEmptyContinuationError
-		if errors.As(transformErr, &emptyContinuation) && attempt == 0 {
+		if errors.As(transformErr, &emptyContinuation) && !continuationRetried {
 			// Kiro.rs 对工具结果后的空回合只重试一次，避免 Codex 被误判为完成。
+			continuationRetried = true
 			continue
 		}
 		if transformErr != nil {
@@ -291,6 +302,19 @@ func (s *Server) directResponse(ctx context.Context, start *pluginv1.ForwardRequ
 		return response, nil
 	}
 	return nil, &directRequestError{http.StatusBadGateway, "direct_response_invalid", "BPS 在工具结果后连续返回空回合，已停止重试。"}
+}
+
+// recordDirectTransportError 保留最近一次直连传输错误，供状态通道展示；
+// 子进程默认不落日志，没有这条记录时传输层失败在现场无迹可查。
+func (s *Server) recordDirectTransportError(err error) {
+	s.lastTransportError.Store(time.Now().Format(time.RFC3339) + " " + err.Error())
+}
+
+func (s *Server) lastTransportErrorText() string {
+	if value, ok := s.lastTransportError.Load().(string); ok {
+		return value
+	}
+	return ""
 }
 
 func localDirectResponse(problem *directRequestError) *http.Response {
@@ -315,6 +339,7 @@ func (s *Server) forwardDirect(stream pluginv1.TransportPlugin_ForwardServer, st
 			if stream.Context().Err() != nil {
 				return stream.Context().Err()
 			}
+			s.recordDirectTransportError(err)
 			return forwardError(stream, "DIRECT_TRANSPORT_ERROR", "直连接口请求未完成，请检查账号代理与目标接口可用性；未自动重试。", true)
 		}
 	}
