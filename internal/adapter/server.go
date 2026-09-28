@@ -26,7 +26,7 @@ import (
 
 const (
 	PluginID = "local.personal.openai-account-health"
-	Version  = "0.7.0"
+	Version  = "0.7.1"
 )
 
 type diagnosticResult struct {
@@ -59,6 +59,7 @@ type Server struct {
 	diagnosticStopping bool
 	diagnosticError    string
 	diagnosticCancel   context.CancelFunc
+	lastTransportError atomic.Value
 	scheduleMu         sync.Mutex
 	scheduleCancel     context.CancelFunc
 	basispointsMu      sync.Mutex
@@ -571,12 +572,13 @@ func (s *Server) runtimeStatus() map[string]any {
 		// 保留旧字段，避免旧版插件页面读取状态时出现空值。
 		"direct": map[string]any{"enabled": config.DirectEnabled, "account_count": len(config.DirectAccountIDs), "endpoint": directResponsesURL},
 		"diagnostics": map[string]any{
-			"enabled":           config.DiagnosticEnabled,
-			"running":           s.diagnosticRunning,
-			"stopping":          s.diagnosticStopping,
-			"error":             s.diagnosticError,
-			"last_results":      append([]diagnosticResult(nil), s.lastResults...),
-			"modeltrace_commit": modeltrace.ModelTraceBankCommit(),
+			"enabled":              config.DiagnosticEnabled,
+			"running":              s.diagnosticRunning,
+			"stopping":             s.diagnosticStopping,
+			"error":                s.diagnosticError,
+			"last_results":         append([]diagnosticResult(nil), s.lastResults...),
+			"modeltrace_commit":    modeltrace.ModelTraceBankCommit(),
+			"last_transport_error": s.lastTransportErrorText(),
 		},
 	}
 }
